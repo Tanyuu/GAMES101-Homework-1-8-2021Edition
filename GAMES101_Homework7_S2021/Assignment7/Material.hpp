@@ -7,7 +7,7 @@
 
 #include "Vector.hpp"
 
-enum MaterialType { DIFFUSE, MFR};
+enum MaterialType { DIFFUSE, MFR, MIR, GLO};
 
 class Material{
 private:
@@ -128,10 +128,35 @@ Vector3f Material::getColorAt(double u, double v) {
     return Vector3f();
 }
 
-
+static float alpha = 0.3;
 Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
     switch(m_type){
         case MFR:
+        // {
+        //     float x_1 = get_random_float(), x_2 = get_random_float();
+
+        //     // if(x_1>=0.1/5.0)
+        //     // {                
+        //     //     float z = std::fabs(1.0f - 2.0f * (x_1-0.1/5.0)/(4.9/5.0))*(1-0.995185)+0.995185;
+        //     //     float r = std::sqrt(1.0f - z * z), phi = 2 * M_PI * x_2;
+        //     //     Vector3f localRay(r*std::cos(phi), r*std::sin(phi), z);
+        //     //     Vector3f rn = toWorld(localRay, N);
+        //     //     return -wi + 2*(dotProduct(wi,rn))*rn;
+        //     // }            
+        //     // else
+        //     // {
+        //     //     float z = std::fabs(1.0f - 2.0f * x_1/(0.1/5.0));
+        //     //     float r = std::sqrt(1.0f - z * z), phi = 2 * M_PI * x_2;
+        //     //     Vector3f localRay(r*std::cos(phi), r*std::sin(phi), z);
+        //     //     return toWorld(localRay, N);
+        //     // }
+
+        //     float z = std::fabs(1.0f - 2.0f * x_1);
+        //     float r = std::sqrt(1.0f - z * z), phi = 2 * M_PI * x_2;
+        //     Vector3f localRay(r*std::cos(phi), r*std::sin(phi), z);
+
+        //     break;
+        // }
         case DIFFUSE:
         {
             // uniform sample on the hemisphere
@@ -143,18 +168,66 @@ Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
             
             break;
         }
+        case MIR:
+        {
+            return -wi + 2*(dotProduct(wi,N))*N;
+            break;
+        }
+        case GLO:
+        {
+            float x_1 = get_random_float(), x_2 = get_random_float();
+            float z = std::fabs(1.0f - 2.0f * (x_1))*(1-0.998795)+0.998795;
+            float r = std::sqrt(1.0f - z * z), phi = 2 * M_PI * x_2;
+            Vector3f localRay(r*std::cos(phi), r*std::sin(phi), z);
+            Vector3f rn = toWorld(localRay, N);
+            return -wi + 2*(dotProduct(wi,rn))*rn;
+        }
     }
 }
 
 float Material::pdf(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
     switch(m_type){
         case MFR:
+        {
+            Vector3f h = (wi+wo)/(wi+wo).norm();
+            if (dotProduct(wo, N) > 0.0f)
+            {
+                float tmp = dotProduct(h,N)*dotProduct(h,N)*(alpha*alpha-1)+1;
+                return alpha*alpha/M_PI/tmp/tmp;
+            }
+            else
+                return 0.0f;
+            break;
+
+        }
         case DIFFUSE:
         {
             // uniform sample probability 1 / (2 * PI)
             if (dotProduct(wo, N) > 0.0f)
                 return 0.5f / M_PI;
             else
+                return 0.0f;
+            break;
+        }
+        case MIR:
+        {
+            Vector3f h = (wi+wo)/(wi+wo).norm();
+            if(dotProduct(h, N) >= 1-EPSILON)
+            {
+                return 1;
+            }
+            else 
+                return 0.0f;
+            break;
+        }
+        case GLO:
+        {
+            Vector3f h = (wi+wo)/(wi+wo).norm();
+            if(dotProduct(h, N) >= 0.998795-EPSILON)
+            {
+                return 1/0.00756837;
+            }
+            else 
                 return 0.0f;
             break;
         }
@@ -181,19 +254,56 @@ Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &
             // Vector3f kd = {pow(Kd.x,0.5),pow(Kd.y,0.5),pow(Kd.z,0.5)};
             Vector3f kd = Kd;
             Vector3f R = kd+(Vector3f(1,1,1)-kd)*pow((1-dotProduct(wi,N)),5);
-            Vector3f h = (wi+wo)/(wi+wo).norm();
-            float d = pow(dotProduct(h,N),4)/(3.0/16*M_PI);
-            // float d = pow(dotProduct(h,N),32) / 0.219832842406;
-            // float d = dotProduct(h,N)<2-M_PI/2?1:(M_PI/2-dotProduct(h,N))/(M_PI-2);
-            // float d = acos(dotProduct(h,N))<M_PI/8?8/M_PI:0;
-            float igrazing = acos(dotProduct(wi,N));
-            float ograzing = acos(dotProduct(wo,N));
-            float grazing = std::max(igrazing,ograzing);
+            // Vector3f R = Kd;
+
+            float d = pdf(wi,wo,N);
+            float igrazing = dotProduct(wi,N);
+            float ograzing = dotProduct(wo,N);
+            // float grazing = std::max(igrazing,ograzing);
             // float g = grazing>M_PI/4?1:(M_PI/2-grazing)*M_PI/2;
-            float g = pow(cos(grazing),0.01);
-            // float g = grazing>M_PI*7.0/8?0:1;
+            // float g = pow(cos(grazing),0.01);
             // float g = 1;
-            return R*d*g/4;
+            // float a = (alpha+1)*(alpha+1)/8;
+            // float g = (igrazing/(igrazing*(1-a/2)+a/2))*(ograzing/(ograzing*(1-a/2)+a/2));
+            float ti = tan(acos(igrazing));
+            float to = tan(acos(ograzing));
+            // std::cout<<1.0/(4*igrazing*ograzing)<<std::endl;
+            float ui = (-1 + sqrt(1+alpha*alpha*ti*ti))*2;
+            float uo = (-1 + sqrt(1+alpha*alpha*to*to))*2;
+            float g = 1/(1+ui+uo);
+
+            return R*d*g/(4*igrazing*ograzing);
+            
+
+            
+        }
+        case MIR:
+        {
+            if (std::min(dotProduct(N, wi),dotProduct(N, wo)) < 0.0f) return Vector3f(0.0f);
+            Vector3f kd = Kd;
+            Vector3f R = kd+(Vector3f(1,1,1)-kd)*pow((1-dotProduct(wi,N)),5);
+            float d = pdf(wi,wo,N);
+            float igrazing = dotProduct(wi,N);
+            float ograzing = dotProduct(wo,N);
+            float a = 0.04;
+            float g = (igrazing/(igrazing*(1-a/2)+a/2))*(ograzing/(ograzing*(1-a/2)+a/2));
+            return R*d*g/(ograzing);
+            break;
+        }
+        case GLO:
+        {
+            if (std::min(dotProduct(N, wi),dotProduct(N, wo)) < 0.0f) return Vector3f(0.0f);
+            Vector3f kd = Kd;
+            Vector3f R = kd+(Vector3f(1,1,1)-kd)*pow((1-dotProduct(wi,N)),5);
+
+            float d = pdf(wi,wo,N);
+
+            float igrazing = dotProduct(wi,N);
+            float ograzing = dotProduct(wo,N);
+            float a = 0.08;
+            float g = (igrazing/(igrazing*(1-a/2)+a/2))*(ograzing/(ograzing*(1-a/2)+a/2));
+
+            return R*d*g/(ograzing);
         }
     }
 }

@@ -50,6 +50,12 @@ GAMES101 现代计算机图形学入门 作业1~8 2021版
 
 ![](./GAMES101_Homework7_S2021/Assignment7/images/HW7-SPP1024.jpg)
 
+![](./GAMES101_Homework7_S2021/Assignment7/images/HW7-MFR-SPP1024.jpg)
+
+![](./GAMES101_Homework7_S2021/Assignment7/images/HW7-GLO-SPP1024.jpg)
+
+![](./GAMES101_Homework7_S2021/Assignment7/images/HW7-MIR-SPP1024.jpg)
+
 ## 作业8 质点弹簧系统
 
 ![](./GAMES101_Homework8_S2021/Assignment8/images/HW8.png)

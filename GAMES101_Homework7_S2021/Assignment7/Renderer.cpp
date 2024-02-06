@@ -24,7 +24,7 @@ void Renderer::Render(const Scene& scene)
     // int m = 0;
 
     // change the spp value to change sample ammount
-    int spp = 128;
+    int spp = 16;
     std::cout << "SPP: " << spp << "\n";
 
     // for (uint32_t j = 0; j < scene.height; ++j) {
@@ -48,6 +48,7 @@ void Renderer::Render(const Scene& scene)
     // UpdateProgress(1.f);
 
     std::vector<std::thread> threads;
+    static int ck = 0;
     for (int k = 0; k < spp; k++){
         threads.emplace_back([&framebuffer, &scene, scale, imageAspectRatio, eye_pos, spp, k]()
         {
@@ -58,6 +59,10 @@ void Renderer::Render(const Scene& scene)
                     float x = (2 * (i + 0.5) / (float)scene.width - 1) *
                             imageAspectRatio * scale;
                     float y = (1 - 2 * (j + 0.5) / (float)scene.height) * scale;
+                    
+                    // float x = (2 * (i + get_random_float()) / (float)scene.width - 1) *
+                    //         imageAspectRatio * scale;
+                    // float y = (1 - 2 * (j + get_random_float()) / (float)scene.height) * scale;
 
                     Vector3f dir = normalize(Vector3f(-x, y, 1));
                     
@@ -67,7 +72,7 @@ void Renderer::Render(const Scene& scene)
                     m++;
                 }
             }
-            UpdateProgress(k / (float)spp);
+            UpdateProgress(ck++ / (float)spp);
         });
     }
     for (auto& thread : threads) {
